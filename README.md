@@ -22,5 +22,5 @@ Create desktop entry:
 
 Remove desktop entry:
 
-    appimage-desktop-entry --app-path '/path/to/Example.AppImage' --remove
+    appimage-desktop-entry --app-name 'Example' --app-path '/path/to/Example.AppImage' --remove
 ```

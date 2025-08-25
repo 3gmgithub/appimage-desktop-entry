@@ -2,6 +2,7 @@
 
 APP_NAME_SET='n'
 SANDBOX='n'
+REMOVE='n'
 
 # Function to display script usage
 usage() {
@@ -33,7 +34,7 @@ if [[ $? -ne 4 ]]; then
 fi
 
 # Set Options (-a also accepts short options)
-OPTS=$(getopt -o '' -a --longoptions 'help,app-name:,app-path:,s,remove' -n "$0" -- "$@")
+OPTS=$(getopt -o 's' -a --longoptions 'help,app-name:,app-path:,remove' -n "$0" -- "$@")
 eval set -- "$OPTS"
 
 if [ $? != 0 ] ; then
@@ -57,7 +58,7 @@ while true; do
         APPIMAGE_PATH=${2}
         shift 2
         ;;
-    s)
+    -s)
         SANDBOX='y'
         shift
         ;;
