@@ -1,0 +1,151 @@
+#!/bin/bash
+set -e
+set -o pipefail
+
+APP_NAME_SET='n'
+
+# Function to display script usage
+usage() {
+	tee <<-EOF
+		 
+		Usage: $0 [OPTIONS]
+		    
+		Options:
+		    
+		    --help            Display this help message
+		    --app-name        Use to specify name of app in menu (Defaults to filename, if omitted)
+		    --app-path        Use to specify app filepath
+		    -s                Add '--no-sandbox' to app
+		    --remove          Remove the .desktop file
+		    
+		If no options are used the variables at the top of script are used...
+		    
+		Example: 
+		
+		$0 --app-name '<PUTCUSTOMAPPNAMEHERE>' --app-path '<PUTAPPPATHHERE>'
+	EOF
+}
+
+# Get CMD Options
+
+# *** Make sure you have a new enough getopt to handle long options (see the man page)
+getopt -T &>/dev/null
+if [[ $? -ne 4 ]]; then 
+    echo "Getopt is too old!" >&2
+    exit 1
+fi
+
+# Set Options (-a also accepts short options)
+OPTS=$(getopt -o '' -a --longoptions 'help,app-name:,app-path:,s,remove' -n "$0" -- "$@")
+eval set -- "$OPTS"
+
+if [ $? != 0 ] ; then
+    echo "Failed parsing options." >&2
+    exit
+fi
+
+while true; do
+  case "$1" in
+    --help )
+        usage
+        exit 0
+        shift
+        ;;
+    --app-name)
+        APP_NAME=${2}
+        APP_NAME_SET='y'
+        shift 2
+        ;;
+    --app-path)
+        APPIMAGE_PATH=${2}
+        shift 2
+        ;;
+    -s)
+        SANDBOX='y'
+        shift
+        ;;
+    --remove)
+        REMOVE='y'
+        shift
+        ;;
+    --)
+        shift
+        break
+        ;;
+    *)
+        echo ""
+        echo "Error in given Parameters. Undefined: "
+        echo $*
+        echo ""
+        usage
+        exit 1
+  esac
+done
+
+
+if [ ! -f "$APPIMAGE_PATH" ]; then
+    echo "File not found: $APPIMAGE_PATH"
+    exit 1
+fi
+
+TEMP_SQUASHFS_PATH=$(mktemp -d)
+APPIMAGE_FULLPATH=$(readlink -e "$APPIMAGE_PATH")
+APPIMAGE_EXEC=$(readlink -e "$APPIMAGE_PATH")
+APPIMAGE_FILENAME=$(basename "$APPIMAGE_PATH")
+
+if [ ${APP_NAME_SET} != 'y' ]; then
+    APP_NAME="${APPIMAGE_FILENAME%.*}"
+fi
+
+if [ ${SANDBOX} == 'y' ]; then
+    APPIMAGE_EXEC="\"$APPIMAGE_FULLPATH\" --no-sandbox"
+fi
+
+DESKTOP_ENTRY_PATH="${HOME}/.local/share/applications/$APP_NAME.desktop"
+ICON_FOLDER="${HOME}/.local/share/icons"
+mkdir -p "${ICON_FOLDER}"
+
+if [ ${REMOVE} == 'y' ]; then
+    rm -f "$DESKTOP_ENTRY_PATH"
+    find "${ICON_FOLDER}" -maxdepth 1 -type f -name "$APP_NAME.*" -delete
+    echo "Removed"
+    exit 0
+fi
+
+pushd $TEMP_SQUASHFS_PATH
+"$APPIMAGE_FULLPATH" --appimage-extract > /dev/null
+cd squashfs-root/
+
+echo "Choose icon: "
+mapfile -t FILENAMES < <(find -L . -maxdepth 1 -type f \( -iname '*.png' -o -iname '*.svg' \))
+i=1
+for filename in "${FILENAMES[@]}"
+do
+    printf " %d) %s\n" "$i" "$filename"
+    i=$((i + 1))
+done
+
+read -r SELECTED_INDEX
+
+ICON_SRC=${FILENAMES[$((SELECTED_INDEX - 1))]}
+ICON_EXT="${ICON_SRC##*.}"
+ICON_DST="${ICON_FOLDER}/$APP_NAME.$ICON_EXT"
+cp "$ICON_SRC" "$ICON_DST"
+
+cat <<EOT > "$DESKTOP_ENTRY_PATH"
+[Desktop Entry]
+Name=$APP_NAME
+StartupWMClass=$APP_NAME
+Exec="${APPIMAGE_EXEC}"
+Icon=$ICON_DST
+Type=Application
+Terminal=false
+EOT
+
+popd
+
+rm -rf $TEMP_SQUASHFS_PATH
+
+chmod 644 "$DESKTOP_ENTRY_PATH"
+
+echo "Created"
