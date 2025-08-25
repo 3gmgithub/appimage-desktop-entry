@@ -98,6 +98,8 @@ fi
 
 if [ ${SANDBOX} == 'y' ]; then
     APPIMAGE_EXEC="\"$APPIMAGE_FULLPATH\" --no-sandbox"
+else
+    APPIMAGE_EXEC="\"$APPIMAGE_FULLPATH\""
 fi
 
 DESKTOP_ENTRY_PATH="${HOME}/.local/share/applications/$APP_NAME.desktop"
