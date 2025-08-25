@@ -135,7 +135,7 @@ cat <<EOT > "$DESKTOP_ENTRY_PATH"
 [Desktop Entry]
 Name=$APP_NAME
 StartupWMClass=$APP_NAME
-Exec="${APPIMAGE_EXEC}"
+Exec=${APPIMAGE_EXEC}
 Icon=$ICON_DST
 Type=Application
 Terminal=false
